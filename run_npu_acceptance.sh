@@ -19,8 +19,8 @@ export ACCEPTANCE_GH="$GH"
 python3 -u - <<'PY'
 from pathlib import Path
 import base64,hashlib,json,os,subprocess
-commit="38babee14719494ede516c4ece7b387cd62d6d30"
-files=[["scripts/bench_attention.py","npu-acceptance/bench_attention.py","715db8145522b31af7782b4ec7db0774c2d3602056734b33cbbf647a9f41cc3b"],["scripts/check_npu_model.py","npu-acceptance/check_npu_model.py","05469a8dfd57df68724a6d1f2c11b084e70f7ad48df9de26c4595072528bbb1e"]]
+commit="7ee22b2da02a2427bde424dca742d8175bbd4792"
+files=[["scripts/bench_attention.py","npu-acceptance/bench_attention.py","411dcc2c918203a882f1789439ff1b41fd8a3fbadf652d71a25745a690334e48"],["scripts/check_npu_model.py","npu-acceptance/check_npu_model.py","05469a8dfd57df68724a6d1f2c11b084e70f7ad48df9de26c4595072528bbb1e"]]
 pending=[]
 for local,remote,expected in files:
     print("Updating:",local,flush=True)
@@ -61,7 +61,7 @@ for key,name in (('model','model-results.json'),('operators','operator-results.j
 summary['source_sha256']={str(p):hashlib.sha256(p.read_bytes()).hexdigest()
     for p in [*Path('nanochat').glob('*.py'),Path('scripts/bench_attention.py'),Path('scripts/check_npu_model.py')]}
 summary['passed']=all(summary[k].get('passed',False) for k in ('model','operators'))
-summary['payload_commit']='38babee14719494ede516c4ece7b387cd62d6d30'
+summary['payload_commit']='7ee22b2da02a2427bde424dca742d8175bbd4792'
 path=out/('npu-acceptance-'+os.environ['ACCEPTANCE_STAMP']+'.json')
 path.write_text(json.dumps(summary,ensure_ascii=False,indent=2,allow_nan=False),encoding='utf-8')
 archive=out/('npu-acceptance-'+os.environ['ACCEPTANCE_STAMP']+'.zip')
