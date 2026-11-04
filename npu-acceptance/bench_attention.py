@@ -106,6 +106,8 @@ def scan_attention(args):
     ref=_sdpa_attention(q.transpose(1,2),k.transpose(1,2),v.transpose(1,2),
                         (args.window,0),False,causal=True).transpose(1,2)
     rows=[]
+    first_pre_outputs={}
+    zero_next_outputs={}
     for mode in (2,3,4):
         for pre in (args.window-1,args.window,args.window+1):
             for following in (0,1):
@@ -113,8 +115,16 @@ def scan_attention(args):
                     atten_mask=_npu_causal_mask(length,q.device),scale=1/math.sqrt(args.head_dim),
                     keep_prob=1.,pre_tockens=pre,next_tockens=following,sparse_mode=mode)[0]
                 errors=error_metrics(out,ref)
+                same_mode_next=(mode,following)
+                same_mode_pre=(mode,pre)
+                if same_mode_next not in first_pre_outputs:
+                    first_pre_outputs[same_mode_next]=out.detach().cpu()
+                if following==0:
+                    zero_next_outputs[same_mode_pre]=out.detach().cpu()
                 row={'sparse_mode':mode,'pre_tockens':pre,'next_tockens':following,
-                     'errors':errors,'boundary_passed':errors['max_abs']<.02}
+                     'errors':errors,'boundary_passed':errors['max_abs']<.02,
+                     'change_vs_first_pre_same_mode_next':error_metrics(out,first_pre_outputs[same_mode_next]),
+                     'change_vs_next_zero_same_mode_pre':error_metrics(out,zero_next_outputs[same_mode_pre])}
                 rows.append(row)
                 print('WINDOW SCAN',json.dumps(row),flush=True)
     expected=next(r for r in rows if r['sparse_mode']==4 and r['pre_tockens']==args.window and r['next_tockens']==0)
