@@ -65,9 +65,15 @@ EXPORT_DIR="/mnt/workspace/lab2-raw-backups/$TAG"
 mkdir -p "$EXPORT_DIR"
 echo "Packing original files without torch.load: $EXPORT_DIR"
 # Only results and project source; no formal dataset, Python environment or credentials.
-tar --exclude='__pycache__' -cvf - outputs/npu nanochat scripts runs tokenizer \
-    | gzip -1 \
-    | split -b 1500M -d -a 3 - "$EXPORT_DIR/npu-results.tar.gz.part"
+if [[ -n "${EXISTING_ARCHIVE:-}" ]]; then
+    [[ -s "$EXISTING_ARCHIVE" ]] || { echo "Backup archive missing: $EXISTING_ARCHIVE" >&2; exit 1; }
+    echo "Reusing existing backup archive: $EXISTING_ARCHIVE"
+    split -b 1500M -d -a 3 "$EXISTING_ARCHIVE" "$EXPORT_DIR/npu-results.tar.gz.part"
+else
+    tar --exclude='__pycache__' -cvf - outputs/npu nanochat scripts runs tokenizer \
+        | gzip -1 \
+        | split -b 1500M -d -a 3 - "$EXPORT_DIR/npu-results.tar.gz.part"
+fi
 echo 'Calculating backup SHA-256 checksums...'
 (
     cd "$EXPORT_DIR"
