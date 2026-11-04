@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Back up original results to the public repository explicitly chosen by user.
 set -euo pipefail
+echo 'UPLOAD SCRIPT STARTED'
 ROOT=/mnt/workspace/aics-lab2-20261104/assign
 cd "$ROOT"
 if pgrep -u "$(id -u)" -f 'scripts[.]base_train' >/dev/null; then
@@ -14,15 +15,27 @@ else
     TOOL_DIR=/mnt/workspace/.tools/github-cli
     mkdir -p "$TOOL_DIR"
     if [[ ! -x "$TOOL_DIR/bin/gh" ]]; then
-        python3 - "$TOOL_DIR" <<'PY'
+        python3 -u - "$TOOL_DIR" <<'PY'
 from pathlib import Path
 from urllib.request import Request, urlopen
-import hashlib, json, platform, sys
+import hashlib, json, platform, sys, time
 root = Path(sys.argv[1])
 arch = {'aarch64':'arm64', 'x86_64':'amd64'}[platform.machine()]
 def fetch(url):
-    with urlopen(Request(url, headers={'User-Agent':'aics-lab2-backup'}), timeout=90) as response:
-        return response.read()
+    print('Downloading:', url, flush=True)
+    with urlopen(Request(url, headers={'User-Agent':'aics-lab2-backup'}), timeout=30) as response:
+        chunks, received, last = [], 0, time.monotonic()
+        while True:
+            chunk = response.read(65536)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            received += len(chunk)
+            if time.monotonic() - last >= 3:
+                print(f'  received {received / 2**20:.2f} MiB', flush=True)
+                last = time.monotonic()
+        print(f'Download complete: {received / 2**20:.2f} MiB', flush=True)
+        return b''.join(chunks)
 release = json.loads(fetch('https://api.github.com/repos/cli/cli/releases/latest'))
 asset = next(a for a in release['assets'] if a['name'].endswith('_linux_' + arch + '.tar.gz'))
 checksums = next(a for a in release['assets'] if a['name'].endswith('_checksums.txt'))
@@ -52,15 +65,17 @@ EXPORT_DIR="/mnt/workspace/lab2-raw-backups/$TAG"
 mkdir -p "$EXPORT_DIR"
 echo "Packing original files without torch.load: $EXPORT_DIR"
 # Only results and project source; no formal dataset, Python environment or credentials.
-tar --exclude='__pycache__' -cf - outputs/npu nanochat scripts runs tokenizer \
+tar --exclude='__pycache__' -cvf - outputs/npu nanochat scripts runs tokenizer \
     | gzip -1 \
     | split -b 1500M -d -a 3 - "$EXPORT_DIR/npu-results.tar.gz.part"
+echo 'Calculating backup SHA-256 checksums...'
 (
     cd "$EXPORT_DIR"
     sha256sum npu-results.tar.gz.part* > SHA256SUMS.txt
 )
 printf '%s\n' "$TAG" > "$EXPORT_DIR/RELEASE-TAG.txt"
 ASSETS=("$EXPORT_DIR"/npu-results.tar.gz.part* "$EXPORT_DIR/SHA256SUMS.txt")
+echo 'Uploading release assets...'
 "$GH" release create "$TAG" "${ASSETS[@]}" --repo Purrdox/temp --target main \
     --draft --title "NPU original training results $TAG" \
     --notes 'Original NPU checkpoints, optimizer states, logs, metadata, tokenizer and source. No dataset or credentials. Concatenate numbered parts in order to reconstruct npu-results.tar.gz. Verify SHA256SUMS.txt first. Native checkpoint format retained.'
