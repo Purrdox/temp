@@ -61,6 +61,7 @@ for key,name in (('model','model-results.json'),('operators','operator-results.j
 summary['source_sha256']={str(p):hashlib.sha256(p.read_bytes()).hexdigest()
     for p in [*Path('nanochat').glob('*.py'),Path('scripts/bench_attention.py'),Path('scripts/check_npu_model.py')]}
 summary['passed']=all(summary[k].get('passed',False) for k in ('model','operators'))
+summary['payload_commit']='38babee14719494ede516c4ece7b387cd62d6d30'
 path=out/('npu-acceptance-'+os.environ['ACCEPTANCE_STAMP']+'.json')
 path.write_text(json.dumps(summary,ensure_ascii=False,indent=2,allow_nan=False),encoding='utf-8')
 archive=out/('npu-acceptance-'+os.environ['ACCEPTANCE_STAMP']+'.zip')
@@ -68,6 +69,8 @@ with zipfile.ZipFile(archive,'w',compression=zipfile.ZIP_DEFLATED) as z:
     for p in out.iterdir():
         if p.is_file() and p.suffix in ('.json','.log'):
             z.write(p,arcname=p.name)
+    for p in [*Path('nanochat').glob('*.py'),Path('scripts/bench_attention.py'),Path('scripts/check_npu_model.py')]:
+        z.write(p,arcname='source/'+p.as_posix())
 print('ACCEPTANCE SUMMARY:',path,flush=True)
 print('PASSED:',summary['passed'],flush=True)
 PY
